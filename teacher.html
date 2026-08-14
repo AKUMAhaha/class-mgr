@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教师端 · 班主任班级管理系统</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f4f7fb; color: #1f2d3d; }
+  header { background: #2f5d8a; color: #fff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  .who { font-size: 13px; opacity: .9; }
+  .wrap { max-width: 980px; margin: 18px auto; padding: 0 14px; }
+  .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 18px; margin-bottom: 16px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .tab { padding: 8px 14px; border-radius: 20px; background: #e9eef5; cursor: pointer; font-size: 13px; border: none; color: #2f5d8a; }
+  .tab.active { background: #2f5d8a; color: #fff; }
+  label { display: block; font-size: 13px; margin: 8px 0 4px; color: #445; }
+  input, textarea, select { width: 100%; padding: 8px 10px; border: 1px solid #cfd8e3; border-radius: 7px; font-size: 14px; font-family: inherit; }
+  textarea { min-height: 70px; resize: vertical; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 150px; }
+  button.primary { background: #2f5d8a; color: #fff; border: none; padding: 9px 16px; border-radius: 7px; font-size: 14px; cursor: pointer; margin-top: 10px; }
+  button.ghost { background: #eef2f7; color: #2f5d8a; border: 1px solid #cfd8e3; padding: 8px 14px; border-radius: 7px; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th, td { border: 1px solid #e1e7ef; padding: 6px 8px; text-align: left; }
+  th { background: #f0f4f9; }
+  .hint { font-size: 12px; color: #889; margin-top: 6px; }
+  .ok { color: #2e8b57; font-size: 13px; } .err { color: #c0392b; font-size: 13px; }
+  .lock { max-width: 360px; margin: 60px auto; text-align: center; }
+  .hidden { display: none; }
+  .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 14px; }
+  .qr-item { border: 1px solid #e1e7ef; border-radius: 10px; padding: 12px; text-align: center; }
+  .qr-item h4 { margin: 0 0 8px; font-size: 14px; }
+  .qr-item canvas { max-width: 170px; }
+  .qr-item .links { font-size: 11px; color: #667; word-break: break-all; margin: 8px 0; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; background:#e9eef5; color:#2f5d8a; }
+  .badge.no { background:#fdecea; color:#c0392b; }
+  @media print {
+    header, .tabs, .lock, .no-print { display: none !important; }
+    body { background: #fff; }
+    .qr-item { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>📋 教师端 · 班级管理系统</h1>
+  <div class="who" id="who"></div>
+</header>
+
+<div id="loginView">
+  <div class="lock card">
+    <h2>教师登录</h2>
+    <p class="hint">默认密码为 <strong>teacher123</strong>（与 wrangler.toml 中 ADMIN 一致）。</p>
+    <label>教师密码</label>
+    <input id="tpwd" type="password" placeholder="请输入教师密码">
+    <button class="primary" onclick="teacherLogin()">登录</button>
+    <div id="tloginMsg" class="err" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<div id="mainView" class="hidden">
+  <div class="wrap">
+    <div class="tabs no-print">
+      <button class="tab active" data-t="roster" onclick="switchTab('roster')">花名册</button>
+      <button class="tab" data-t="qr" onclick="switchTab('qr')">每生二维码</button>
+      <button class="tab" data-t="schedule" onclick="switchTab('schedule')">课表管理</button>
+      <button class="tab" data-t="scores" onclick="switchTab('scores')">成绩上传</button>
+      <button class="tab" data-t="records" onclick="switchTab('records')">月记录总览</button>
+      <button class="tab" data-t="profile" onclick="switchTab('profile')">档案查看</button>
+    </div>
+
+    <!-- 花名册 -->
+    <div id="p-roster" class="card">
+      <h3>花名册（仅花名册内学生可使用系统）</h3>
+      <div class="row">
+        <div><label>学号</label><input id="n_sid" placeholder="如 2024010101"></div>
+        <div><label>姓名</label><input id="n_name" placeholder="姓名"></div>
+        <div><label>班级</label><input id="n_cls" placeholder="如 机械2401"></div>
+      </div>
+      <button class="primary" onclick="addStudent()">添加单名学生</button>
+      <span id="rosterMsg" class="ok"></span>
+      <h4 style="margin-top:16px;color:#2f5d8a">批量导入</h4>
+      <p class="hint">每行一个，格式：<code>学号,姓名,班级</code>；或粘贴 JSON 数组 [{"sid":"","name":"","class_name":""}]</p>
+      <textarea id="bulk" placeholder="2024010101,张三,机械2401&#10;2024010102,李四,机械2401"></textarea>
+      <button class="ghost" onclick="bulkImport()">批量导入</button>
+      <div id="rosterTable"></div>
+    </div>
+
+    <!-- 每生二维码 -->
+    <div id="p-qr" class="card hidden">
+      <h3>每生专属二维码</h3>
+      <p class="hint">学生二维码：学生扫码填表/查看自己；家长二维码：家长扫码查看自己孩子（只读）。可逐个下载或一键打印全部。</p>
+      <button class="ghost no-print" onclick="window.print()">🖨 打印全部二维码</button>
+      <div id="qrGrid" class="qr-grid" style="margin-top:12px;"></div>
+    </div>
+
+    <!-- 课表管理 -->
+    <div id="p-schedule" class="card hidden">
+      <h3>课表管理</h3>
+      <div class="row">
+        <div><label>选择学生</label><select id="sc_sel" onchange="loadSchedule()"></select></div>
+        <div><label>学期</label><input id="sc_term" placeholder="如 2026-2027-1"></div>
+      </div>
+      <p class="hint">每行：星期/节次, 课程, 教室（可多行）</p>
+      <textarea id="sc_data" placeholder="周一1-2, 高等数学, 主楼301&#10;周一3-4, 大学英语, 外语楼205"></textarea>
+      <button class="primary" onclick="saveSchedule()">保存课表</button>
+      <span id="scMsg" class="ok"></span>
+    </div>
+
+    <!-- 成绩上传 -->
+    <div id="p-scores" class="card hidden">
+      <h3>成绩上传</h3>
+      <div class="row">
+        <div><label>选择学生</label><select id="sg_sel" onchange="loadScores()"></select></div>
+        <div><label>学期</label><input id="sg_term" placeholder="如 2026-2027-1"></div>
+      </div>
+      <p class="hint">每行：课程, 成绩, 学分（可多行）</p>
+      <textarea id="sg_data" placeholder="高等数学, 85, 4&#10;大学英语, 78, 3"></textarea>
+      <button class="primary" onclick="saveScores()">保存成绩</button>
+      <span id="sgMsg" class="ok"></span>
+    </div>
+
+    <!-- 月记录总览 -->
+    <div id="p-records" class="card hidden">
+      <h3>每月学习情况总览</h3>
+      <div id="recordsBody">加载中…</div>
+    </div>
+
+    <!-- 档案查看 -->
+    <div id="p-profile" class="card hidden">
+      <h3>学生档案查看</h3>
+      <label>选择学生</label><select id="pf_sel" onchange="loadProfile()"></select>
+      <div id="profileBody" style="margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SYNC_BASE = location.origin;
+let ADMIN = null;
+
+function api(path, opts){ return fetch(SYNC_BASE + path, opts || {}).then(r => r.json()); }
+function $(id){ return document.getElementById(id); }
+function aq(){ return '?admin=' + encodeURIComponent(ADMIN); }
+
+function teacherLogin(){
+  const pwd = $('tpwd').value;
+  $('tloginMsg').textContent = '';
+  api('/api/teacher-login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: pwd}) })
+    .then(d => {
+      if (d.ok) { ADMIN = d.admin; $('loginView').classList.add('hidden'); $('mainView').classList.remove('hidden'); $('who').textContent = '教师已登录'; loadRoster(); }
+      else $('tloginMsg').textContent = d.error || '登录失败';
+    }).catch(e => $('tloginMsg').textContent = '网络错误');
+}
+
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.t === t));
+  ['roster','qr','schedule','scores','records','profile'].forEach(k => $('p-'+k).classList.toggle('hidden', k !== t));
+  if (t === 'qr') loadQR();
+  if (t === 'schedule') refreshStudentSelect('sc_sel');
+  if (t === 'scores') refreshStudentSelect('sg_sel');
+  if (t === 'records') loadRecordsAll();
+  if (t === 'profile') refreshStudentSelect('pf_sel');
+}
+
+async function refreshStudentSelect(selId){
+  const rows = await api('/api/students' + aq());
+  const sel = $(selId);
+  sel.innerHTML = (rows || []).map(s => `<option value="${s.sid}">${s.name}（${s.sid}）</option>`).join('');
+}
+
+function addStudent(){
+  const sid = $('n_sid').value.trim(), name = $('n_name').value.trim(), cls = $('n_cls').value.trim();
+  if (!sid || !name) { $('rosterMsg').textContent = '学号和姓名必填'; $('rosterMsg').className='err'; return; }
+  api('/api/students' + aq(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify([{sid, name, class_name: cls}]) })
+    .then(d => { $('rosterMsg').textContent = d.ok ? '已添加 ✓' : (d.error||'失败'); $('rosterMsg').className='ok'; $('n_sid').value=''; $('n_name').value=''; $('n_cls').value=''; loadRoster(); });
+}
+
+function bulkImport(){
+  const raw = $('bulk').value.trim();
+  if (!raw) return;
+  let list = null;
+  if (raw.startsWith('[')) {
+    try { list = JSON.parse(raw); } catch(e) { $('rosterMsg').textContent = 'JSON 解析失败'; $('rosterMsg').className='err'; return; }
+  } else {
+    list = raw.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+      const p = l.split(','); return { sid: (p[0]||'').trim(), name: (p[1]||'').trim(), class_name: (p[2]||'').trim() };
+    });
+  }
+  api('/api/students' + aq(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(list) })
+    .then(d => { $('rosterMsg').textContent = d.ok ? ('已导入 '+list.length+' 条 ✓') : (d.error||'失败'); $('rosterMsg').className='ok'; $('bulk').value=''; loadRoster(); });
+}
+
+async function loadRoster(){
+  const rows = await api('/api/students' + aq());
+  if (!rows) return;
+  let h = '<table><tr><th>学号</th><th>姓名</th><th>班级</th><th>是否已改密</th></tr>';
+  rows.forEach(s => {
+    const ch = s.pwd_changed ? '<span class="badge">已改密</span>' : '<span class="badge no">初始密码</span>';
+    h += `<tr><td>${s.sid}</td><td>${esc(s.name)}</td><td>${esc(s.class_name||'')}</td><td>${ch}</td></tr>`;
+  });
+  $('rosterTable').innerHTML = h + '</table>';
+}
+
+async function loadQR(){
+  const rows = await api('/api/qr' + aq());
+  if (!rows || !rows.length) { $('qrGrid').innerHTML = '<p class="hint">花名册为空，请先录入学生。</p>'; return; }
+  const base = location.origin;
+  $('qrGrid').innerHTML = '';
+  for (const s of rows) {
+    const stuUrl = base + '/student.html?sid=' + encodeURIComponent(s.sid) + '&t=' + encodeURIComponent(s.token_student);
+    const parUrl = base + '/parent.html?sid=' + encodeURIComponent(s.sid) + '&t=' + encodeURIComponent(s.token_parent);
+    const div = document.createElement('div'); div.className = 'qr-item';
+    div.innerHTML = `<h4>${esc(s.name)}（${s.sid}）</h4>
+      <div>学生码</div><canvas id="c_${s.sid}"></canvas>
+      <div class="links">${stuUrl}</div>
+      <div>家长码</div><canvas id="p_${s.sid}"></canvas>
+      <div class="links">${parUrl}</div>
+      <button class="ghost" onclick="dl('c_${s.sid}','学生_${s.sid}.png')">下载学生码</button>
+      <button class="ghost" onclick="dl('p_${s.sid}','家长_${s.sid}.png')">下载家长码</button>`;
+    $('qrGrid').appendChild(div);
+    if (window.QRCode) {
+      QRCode.toCanvas(document.getElementById('c_'+s.sid), stuUrl, {width:160}, ()=>{});
+      QRCode.toCanvas(document.getElementById('p_'+s.sid), parUrl, {width:160}, ()=>{});
+    }
+  }
+}
+function dl(canvasId, name){ const c = document.getElementById(canvasId); const a = document.createElement('a'); a.download = name; a.href = c.toDataURL(); a.click(); }
+
+async function loadSchedule(){
+  const sid = $('sc_sel').value; if (!sid) return;
+  const d = await api('/api/schedule?sid=' + encodeURIComponent(sid) + aq());
+  if (!d) return;
+  $('sc_term').value = d.term || '';
+  $('sc_data').value = (d.data||[]).map(r => `${r.period||''}, ${r.course||''}, ${r.room||''}`).join('\n');
+}
+function saveSchedule(){
+  const sid = $('sc_sel').value;
+  const data = $('sc_data').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const p = l.split(','); return { period: (p[0]||'').trim(), course: (p[1]||'').trim(), room: (p[2]||'').trim() };
+  });
+  api('/api/schedule?sid=' + encodeURIComponent(sid) + aq(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({term: $('sc_term').value, data}) })
+    .then(d => { $('scMsg').textContent = d.ok ? '已保存 ✓' : (d.error||'失败'); });
+}
+
+async function loadScores(){
+  const sid = $('sg_sel').value; if (!sid) return;
+  const d = await api('/api/scores?sid=' + encodeURIComponent(sid) + aq());
+  if (!d) return;
+  $('sg_term').value = d.term || '';
+  $('sg_data').value = (d.data||[]).map(r => `${r.course||''}, ${r.score??''}, ${r.credit??''}`).join('\n');
+}
+function saveScores(){
+  const sid = $('sg_sel').value;
+  const data = $('sg_data').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const p = l.split(','); return { course: (p[0]||'').trim(), score: (p[1]||'').trim(), credit: (p[2]||'').trim() };
+  });
+  api('/api/scores?sid=' + encodeURIComponent(sid) + aq(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({term: $('sg_term').value, data}) })
+    .then(d => { $('sgMsg').textContent = d.ok ? '已保存 ✓' : (d.error||'失败'); });
+}
+
+async function loadRecordsAll(){
+  const rows = await api('/api/records-all' + aq());
+  if (!rows) return;
+  let h = '<table><tr><th>学号</th><th>姓名</th><th>月份</th><th>学习状态</th><th>疑惑</th><th>心情</th><th>恋爱</th><th>生活</th></tr>';
+  rows.forEach(r => {
+    h += `<tr><td>${r.sid}</td><td>${esc(r.name||'')}</td><td>${r.month}</td><td>${esc(r.learning_status)}</td><td>${esc(r.doubts)}</td><td>${esc(r.mood)}</td><td>${esc(r.relationship)}</td><td>${esc(r.life)}</td></tr>`;
+  });
+  $('recordsBody').innerHTML = rows.length ? h + '</table>' : '<p class="hint">暂无记录</p>';
+}
+
+async function loadProfile(){
+  const sid = $('pf_sel').value; if (!sid) return;
+  const d = await api('/api/profile?sid=' + encodeURIComponent(sid) + aq());
+  if (!d) return;
+  const f = d.family || {}, p = d.psych || {};
+  $('profileBody').innerHTML = `<table>
+    <tr><th>家庭住址</th><td>${esc(f.addr||'—')}</td></tr>
+    <tr><th>监护人/联系方式</th><td>${esc(f.guardian||'—')}</td></tr>
+    <tr><th>家庭经济</th><td>${esc(f.econ||'—')}</td></tr>
+    <tr><th>家庭说明</th><td>${esc(f.other||'—')}</td></tr>
+    <tr><th>压力来源</th><td>${esc(p.stress||'—')}</td></tr>
+    <tr><th>情绪自评</th><td>${esc(p.mood||'—')}</td></tr>
+    <tr><th>需心理关注</th><td>${esc(p.need||'否')}</td></tr>
+    <tr><th>心理说明</th><td>${esc(p.other||'—')}</td></tr>
+  </table>`;
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+</script>
+</body>
+</html>
