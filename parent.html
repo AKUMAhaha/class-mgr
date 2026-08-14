@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家长端 · 班主任班级管理系统</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f4f7fb; color: #1f2d3d; }
+  header { background: #4e8d7c; color: #fff; padding: 14px 20px; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  .wrap { max-width: 720px; margin: 18px auto; padding: 0 14px; }
+  .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 18px; margin-bottom: 16px; }
+  h3 { margin: 0 0 10px; color: #4e8d7c; font-size: 15px; border-left: 4px solid #4e8d7c; padding-left: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #e1e7ef; padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { background: #f0f4f9; width: 110px; }
+  .hint { font-size: 12px; color: #889; }
+  .center { text-align: center; margin-top: 80px; color: #889; }
+  .badge { display:inline-block; padding:3px 10px; border-radius:12px; background:#e6f3ee; color:#4e8d7c; font-size:13px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header><h1>👪 家长端 · 班级管理系统</h1></header>
+
+<div id="gate" class="center">
+  <h2>请扫描孩子的专属家长二维码</h2>
+  <p class="hint">本页面仅供家长查看自己孩子的学习、家庭与心理情况，需由班主任提供的家长二维码进入。</p>
+</div>
+
+<div id="main" class="hidden">
+  <div class="wrap">
+    <div class="card">
+      <span class="badge" id="childName"></span>
+      <span class="badge" id="childClass"></span>
+    </div>
+    <div class="card"><h3>家庭情况</h3><div id="family"></div></div>
+    <div class="card"><h3>心理情况</h3><div id="psych"></div></div>
+    <div class="card"><h3>课表</h3><div id="schedule"></div></div>
+    <div class="card"><h3>成绩</h3><div id="scores"></div></div>
+    <div class="card"><h3>每月学习情况记录</h3><div id="records"></div></div>
+  </div>
+</div>
+
+<script>
+const SYNC_BASE = location.origin;
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function kv(o, keys){ let h='<table>'; keys.forEach(([k,label]) => { h += `<tr><th>${label}</th><td>${esc(o[k]||'—')}</td></tr>`; }); return h+'</table>'; }
+function tableOf(arr, cols){ if(!arr||!arr.length) return '<p class="hint">暂无</p>'; let h='<table><tr>'+cols.map(c=>'<th>'+(Array.isArray(c)?c[0]:c)+'</th>').join('')+'</tr>'; arr.forEach(r=>{ h+='<tr>'+cols.map(c=>'<td>'+esc(r[Array.isArray(c)?c[1]:c]??'')+'</td>').join('')+'</tr>'; }); return h+'</table>'; }
+
+(function(){
+  const q = new URLSearchParams(location.search);
+  const sid = q.get('sid'), t = q.get('t');
+  if (!sid || !t) { return; } // 显示 gate 提示
+  fetch(SYNC_BASE + '/api/parent?sid=' + encodeURIComponent(sid) + '&t=' + encodeURIComponent(t))
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { $('gate').innerHTML = '<h2>❌ ' + esc(d.error) + '</h2><p class="hint">请重新扫描最新的家长二维码。</p>'; return; }
+      $('gate').classList.add('hidden');
+      $('main').classList.remove('hidden');
+      $('childName').textContent = d.name + '（' + d.sid + '）';
+      $('childClass').textContent = d.class_name || '班级';
+      $('family').innerHTML = kv(d.family || {}, [['addr','家庭住址'],['guardian','监护人/联系方式'],['econ','家庭经济'],['other','其他说明']]);
+      $('psych').innerHTML = kv(d.psych || {}, [['stress','压力来源'],['mood','情绪自评'],['need','是否需心理关注'],['other','其他说明']]);
+      $('schedule').innerHTML = (d.schedule && d.schedule.term) ? ('<p class="hint">学期：'+esc(d.schedule.term)+'</p>'+tableOf(d.schedule.data,[['节次/时间','period'],['课程','course'],['教室','room']])) : '<p class="hint">暂无课表</p>';
+      $('scores').innerHTML = (d.scores && d.scores.term) ? ('<p class="hint">学期：'+esc(d.scores.term)+'</p>'+tableOf(d.scores.data,[['课程','course'],['成绩','score'],['学分','credit']])) : '<p class="hint">暂无成绩</p>';
+      $('records').innerHTML = (d.records && d.records.length)
+        ? (function(){
+            let h = '<table><tr><th>月份</th><th>学习状态</th><th>疑惑</th><th>心情</th><th>恋爱</th><th>生活</th></tr>';
+            d.records.forEach(r => { h += `<tr><td>${esc(r.month)}</td><td>${esc(r.learning_status)}</td><td>${esc(r.doubts)}</td><td>${esc(r.mood)}</td><td>${esc(r.relationship)}</td><td>${esc(r.life)}</td></tr>`; });
+            return h + '</table>';
+          })()
+        : '<p class="hint">暂无记录</p>';
+    })
+    .catch(e => { $('gate').innerHTML = '<h2>❌ 网络错误</h2><p class="hint">请检查网络后重试。</p>'; });
+})();
+</script>
+</body>
+</html>
