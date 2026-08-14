@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学生端 · 班主任班级管理系统</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f4f7fb; color: #1f2d3d; }
+  header { background: #2f5d8a; color: #fff; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  .who { font-size: 13px; opacity: .9; }
+  .wrap { max-width: 760px; margin: 18px auto; padding: 0 14px; }
+  .card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 18px; margin-bottom: 16px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .tab { padding: 8px 14px; border-radius: 20px; background: #e9eef5; cursor: pointer; font-size: 13px; border: none; color: #2f5d8a; }
+  .tab.active { background: #2f5d8a; color: #fff; }
+  label { display: block; font-size: 13px; margin: 10px 0 4px; color: #445; }
+  input, textarea, select { width: 100%; padding: 9px 10px; border: 1px solid #cfd8e3; border-radius: 7px; font-size: 14px; font-family: inherit; }
+  textarea { min-height: 64px; resize: vertical; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 160px; }
+  button.primary { background: #2f5d8a; color: #fff; border: none; padding: 10px 18px; border-radius: 7px; font-size: 14px; cursor: pointer; margin-top: 12px; }
+  button.ghost { background: #eef2f7; color: #2f5d8a; border: 1px solid #cfd8e3; padding: 9px 16px; border-radius: 7px; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid #e1e7ef; padding: 7px 8px; text-align: left; }
+  th { background: #f0f4f9; }
+  .hint { font-size: 12px; color: #889; margin-top: 6px; }
+  .ok { color: #2e8b57; font-size: 13px; }
+  .err { color: #c0392b; font-size: 13px; }
+  .badge { display: inline-block; background: #fff3cd; color: #8a6d00; padding: 3px 9px; border-radius: 12px; font-size: 12px; }
+  .lock { max-width: 360px; margin: 60px auto; text-align: center; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #fff; border-radius: 10px; padding: 22px; width: 340px; }
+  .modal h3 { margin: 0 0 6px; color: #c0392b; font-size: 16px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎓 学生端 · 班级管理系统</h1>
+  <div class="who" id="who"></div>
+</header>
+
+<!-- 登录/扫码 -->
+<div id="loginView">
+  <div class="lock card">
+    <h2>登录</h2>
+    <p class="hint">初始账号与密码均为<strong>学号</strong>；首次登录需修改密码。<br>也可用班主任发的专属二维码扫码直接进入。</p>
+    <label>学号</label>
+    <input id="sid" placeholder="请输入学号">
+    <label>密码</label>
+    <input id="pwd" type="password" placeholder="初始密码=学号">
+    <button class="primary" onclick="doLogin()">登录</button>
+    <div id="loginMsg" class="err" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="mainView" class="hidden">
+  <div class="wrap">
+    <div class="tabs">
+      <button class="tab active" data-t="profile" onclick="switchTab('profile')">个人档案</button>
+      <button class="tab" data-t="record" onclick="switchTab('record')">每月学习记录</button>
+      <button class="tab" data-t="schedule" onclick="switchTab('schedule')">我的课表</button>
+      <button class="tab" data-t="scores" onclick="switchTab('scores')">我的成绩</button>
+      <button class="tab" data-t="pwd" onclick="switchTab('pwd')">修改密码</button>
+    </div>
+
+    <!-- 档案 -->
+    <div id="p-profile" class="card">
+      <h3>个人档案（仅自己可见，教师/家长可查看）</h3>
+      <h4 style="margin:14px 0 2px;color:#2f5d8a">家庭情况</h4>
+      <label>家庭住址</label><input id="f_addr">
+      <label>监护人及联系方式</label><input id="f_guardian">
+      <label>家庭经济状况</label><input id="f_econ">
+      <label>其他说明</label><textarea id="f_other"></textarea>
+      <h4 style="margin:14px 0 2px;color:#2f5d8a">心理情况</h4>
+      <label>近期压力来源</label><textarea id="p_stress"></textarea>
+      <label>情绪状态自评</label><input id="p_mood">
+      <label>是否需心理关注</label>
+      <select id="p_need"><option value="否">否</option><option value="是">是</option></select>
+      <label>其他说明</label><textarea id="p_other"></textarea>
+      <button class="primary" onclick="saveProfile()">保存档案</button>
+      <span id="profileMsg" class="ok"></span>
+    </div>
+
+    <!-- 月记录 -->
+    <div id="p-record" class="card hidden">
+      <h3>每月学习情况记录</h3>
+      <p class="hint">该项记录<strong>仅你自己可见</strong>；教师端与家长端可查看。恋爱状态、生活等如实填写即可。</p>
+      <div class="row">
+        <div><label>月份</label><input id="r_month" placeholder="如 2026-09"></div>
+      </div>
+      <label>学习状态</label><textarea id="r_ls" placeholder="如：适应良好 / 偏科严重 / 跟不上节奏"></textarea>
+      <label>疑惑（遇到的困难）</label><textarea id="r_doubt" placeholder="如：高数听不懂、英语词汇量不足"></textarea>
+      <label>心情</label><input id="r_mood" placeholder="如：焦虑 / 平静 / 充实">
+      <label>恋爱状态</label>
+      <select id="r_rel"><option value="单身">单身</option><option value="恋爱中">恋爱中</option><option value="不想谈">不想谈</option><option value="其他">其他</option></select>
+      <label>生活</label><textarea id="r_life" placeholder="如：作息规律 / 经常熬夜 / 与室友关系"></textarea>
+      <button class="primary" onclick="saveRecord()">保存本月记录</button>
+      <span id="recordMsg" class="ok"></span>
+      <h4 style="margin-top:16px;color:#2f5d8a">历史记录</h4>
+      <div id="recordHistory"></div>
+    </div>
+
+    <!-- 课表 -->
+    <div id="p-schedule" class="card hidden">
+      <h3>我的课表</h3>
+      <p id="scheduleTerm" class="hint"></p>
+      <div id="scheduleBody">加载中…</div>
+    </div>
+
+    <!-- 成绩 -->
+    <div id="p-scores" class="card hidden">
+      <h3>我的成绩</h3>
+      <p id="scoresTerm" class="hint"></p>
+      <div id="scoresBody">加载中…</div>
+    </div>
+
+    <!-- 改密 -->
+    <div id="p-pwd" class="card hidden">
+      <h3>修改密码</h3>
+      <label>原密码</label><input id="oldP" type="password">
+      <label>新密码（至少 4 位）</label><input id="newP" type="password">
+      <label>确认新密码</label><input id="newP2" type="password">
+      <button class="primary" onclick="changePwd()">修改密码</button>
+      <span id="pwdMsg" class="ok"></span>
+    </div>
+  </div>
+</div>
+
+<!-- 强制改密弹窗 -->
+<div class="modal-bg" id="forceModal">
+  <div class="modal">
+    <h3>⚠️ 首次登录，请修改密码</h3>
+    <p class="hint">初始密码为学号，存在安全风险，必须修改后才能使用。</p>
+    <label>新密码（至少 4 位）</label><input id="fpNew" type="password">
+    <label>确认新密码</label><input id="fpNew2" type="password">
+    <button class="primary" onclick="forceChange()">确认修改</button>
+    <div id="forceMsg" class="err"></div>
+  </div>
+</div>
+
+<script>
+const SYNC_BASE = location.origin;
+let SESSION = null; // {sid, name, class_name, token_student}
+
+function api(path, opts) {
+  return fetch(SYNC_BASE + path, opts || {}).then(r => r.json());
+}
+function $(id){ return document.getElementById(id); }
+
+// —— 扫码进入（URL 带 ?sid=&t=）——
+(function initFromQR(){
+  const q = new URLSearchParams(location.search);
+  const sid = q.get('sid'), t = q.get('t');
+  if (sid && t) {
+    api('/api/me?sid=' + encodeURIComponent(sid) + '&t=' + encodeURIComponent(t)).then(d => {
+      if (d.ok) { SESSION = { sid: d.sid, name: d.name, class_name: d.class_name, token_student: t }; enter(); }
+      else { $('loginMsg').textContent = d.error || '二维码无效'; }
+    }).catch(e => { $('loginMsg').textContent = '网络错误'; });
+  }
+})();
+
+function doLogin(){
+  const sid = $('sid').value.trim(), pwd = $('pwd').value;
+  $('loginMsg').textContent = '';
+  api('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sid, password: pwd}) })
+    .then(d => {
+      if (d.ok) {
+        SESSION = { sid: d.sid, name: d.name, class_name: d.class_name, token_student: d.token_student };
+        if (d.needChange) { $('forceModal').classList.add('show'); }
+        else enter();
+      } else { $('loginMsg').textContent = d.error || '登录失败'; }
+    }).catch(e => { $('loginMsg').textContent = '网络错误'; });
+}
+
+function forceChange(){
+  const np = $('fpNew').value, np2 = $('fpNew2').value;
+  if (np.length < 4) { $('forceMsg').textContent = '新密码至少 4 位'; return; }
+  if (np !== np2) { $('forceMsg').textContent = '两次输入不一致'; return; }
+  // 首次改密：原密码即初始密码（=学号）
+  api('/api/change-password', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ sid: SESSION.sid, oldPassword: SESSION.sid, newPassword: np }) })
+    .then(d => {
+      if (d.ok) { $('forceModal').classList.remove('show'); enter(); }
+      else { $('forceMsg').textContent = d.error || '修改失败'; }
+    }).catch(e => { $('forceMsg').textContent = '网络错误'; });
+}
+
+function changePwd(){
+  const op = $('oldP').value, np = $('newP').value, np2 = $('newP2').value;
+  $('pwdMsg').textContent = '';
+  if (np.length < 4) { $('pwdMsg').textContent = '新密码至少 4 位'; $('pwdMsg').className='err'; return; }
+  if (np !== np2) { $('pwdMsg').textContent = '两次输入不一致'; $('pwdMsg').className='err'; return; }
+  api('/api/change-password', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ sid: SESSION.sid, oldPassword: op, newPassword: np }) })
+    .then(d => { $('pwdMsg').textContent = d.ok ? '密码已修改' : (d.error||'失败'); $('pwdMsg').className = d.ok?'ok':'err'; });
+}
+
+function enter(){
+  $('loginView').classList.add('hidden');
+  $('mainView').classList.remove('hidden');
+  $('who').textContent = (SESSION.class_name ? SESSION.class_name + ' · ' : '') + SESSION.name + '（' + SESSION.sid + '）';
+  loadProfile();
+}
+
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.t === t));
+  ['profile','record','schedule','scores','pwd'].forEach(k => $('p-'+k).classList.toggle('hidden', k !== t));
+  if (t === 'record') loadRecords();
+  if (t === 'schedule') loadSchedule();
+  if (t === 'scores') loadScores();
+}
+
+function authQS(){ return '?sid=' + encodeURIComponent(SESSION.sid) + '&t=' + encodeURIComponent(SESSION.token_student); }
+
+function loadProfile(){
+  api('/api/profile' + authQS()).then(d => {
+    if (!d || d.error) return;
+    $('f_addr').value = d.family.addr || '';
+    $('f_guardian').value = d.family.guardian || '';
+    $('f_econ').value = d.family.econ || '';
+    $('f_other').value = d.family.other || '';
+    $('p_stress').value = d.psych.stress || '';
+    $('p_mood').value = d.psych.mood || '';
+    $('p_need').value = d.psych.need || '否';
+    $('p_other').value = d.psych.other || '';
+  });
+}
+function saveProfile(){
+  const body = {
+    family: { addr: $('f_addr').value, guardian: $('f_guardian').value, econ: $('f_econ').value, other: $('f_other').value },
+    psych: { stress: $('p_stress').value, mood: $('p_mood').value, need: $('p_need').value, other: $('p_other').value }
+  };
+  api('/api/profile' + authQS(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    .then(d => { $('profileMsg').textContent = d.ok ? '已保存 ✓' : (d.error||'失败'); });
+}
+
+function loadRecords(){
+  const m = new Date().toISOString().slice(0,7);
+  if (!$('r_month').value) $('r_month').value = m;
+  api('/api/record' + authQS()).then(d => {
+    const arr = Array.isArray(d) ? d : [];
+    const cols = [['月份','month'],['学习状态','learning_status'],['疑惑','doubts'],['心情','mood'],['恋爱','relationship'],['生活','life']];
+    let h = '<table><tr>' + cols.map(c => '<th>'+c[0]+'</th>').join('') + '</tr>';
+    arr.slice().reverse().forEach(r => { h += '<tr>' + cols.map(c => '<td>'+esc(r[c[1]] ?? '')+'</td>').join('') + '</tr>'; });
+    h += '</table>';
+    $('recordHistory').innerHTML = arr.length ? h : '<p class="hint">暂无记录</p>';
+  });
+}
+function saveRecord(){
+  const body = {
+    month: $('r_month').value.trim(),
+    learning_status: $('r_ls').value, doubts: $('r_doubt').value, mood: $('r_mood').value,
+    relationship: $('r_rel').value, life: $('r_life').value
+  };
+  if (!body.month) { $('recordMsg').textContent = '请填写月份'; $('recordMsg').className='err'; return; }
+  api('/api/record' + authQS(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    .then(d => { $('recordMsg').textContent = d.ok ? '已保存 ✓' : (d.error||'失败'); $('recordMsg').className = d.ok?'ok':'err'; loadRecords(); });
+}
+
+function loadSchedule(){
+  api('/api/schedule' + authQS()).then(d => {
+    if (!d) return;
+    $('scheduleTerm').textContent = d.term ? ('学期：' + d.term) : '尚未录入课表';
+    const cols = [['节次/时间','period'],['课程','course'],['教室','room']];
+    $('scheduleBody').innerHTML = d.data && d.data.length
+      ? tableOf(d.data, cols) : '<p class="hint">暂无课表</p>';
+  });
+}
+function loadScores(){
+  api('/api/scores' + authQS()).then(d => {
+    if (!d) return;
+    $('scoresTerm').textContent = d.term ? ('学期：' + d.term) : '尚未录入成绩';
+    const cols = [['课程','course'],['成绩','score'],['学分','credit']];
+    $('scoresBody').innerHTML = d.data && d.data.length
+      ? tableOf(d.data, cols) : '<p class="hint">暂无成绩</p>';
+  });
+}
+function tableOf(arr, cols){
+  let h = '<table><tr>' + cols.map(c => '<th>'+c[0]+'</th>').join('') + '</tr>';
+  arr.forEach(r => { h += '<tr>' + cols.map(c => '<td>'+esc(r[c[1]] ?? '')+'</td>').join('') + '</tr>'; });
+  return h + '</table>';
+}
+function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+</script>
+</body>
+</html>
