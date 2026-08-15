@@ -48,3 +48,5 @@ class-mgr/
 ├── qr/entry_*.png                # 三端入口二维码（占位，需重生成）
 └── 使用说明_班主任班级管理系统.docx  # Word 版使用说明
 ```
+
+> Deployed 2026-08-15 with D1 binding
