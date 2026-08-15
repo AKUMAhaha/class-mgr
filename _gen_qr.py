@@ -16,7 +16,7 @@
 import os, csv, qrcode
 
 # ========== 部署后请修改此处 ==========
-BASE_URL = "https://class-mgr.pages.dev"
+BASE_URL = "https://class-mgr1.pages.dev"
 # =====================================
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qr")
