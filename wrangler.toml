@@ -1,0 +1,16 @@
+name = "class-mgr"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# 静态前端文件托管
+assets = { directory = ".", binding = "ASSETS" }
+
+# D1 数据库绑定
+[[d1_databases]]
+binding = "DB"
+database_name = "mec-class-db"
+database_id = "5a0aab92-e536-4eb1-94cf-3c8da28a970e"
+
+# 教师端后台密码（默认 teacher123）
+[vars]
+ADMIN = "teacher123"
