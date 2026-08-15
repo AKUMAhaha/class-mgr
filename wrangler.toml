@@ -5,7 +5,7 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "mec-class-db"
-database_id = "5a0aab92-e536-4eb1-94cf-3c8da28a970e"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
 
 [vars]
 ADMIN = "teacher123"
