@@ -12,7 +12,7 @@ export async function onRequest(context) {
   if (auth.error) return json({ error: auth.error }, auth.status);
 
   if (request.method === 'POST') {
-    if (!auth.isTeacher) return json({ error: '仅教师可上传成绩' }, 403);
+    if (!auth.isTeacher && !auth.isSelf) return json({ error: '仅教师或本人可录入成绩' }, 403);
     const body = await request.json();
     await env.DB.prepare(
       'INSERT OR REPLACE INTO scores (sid, term, data) VALUES (?, ?, ?)'
