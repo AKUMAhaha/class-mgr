@@ -65,7 +65,7 @@
   <div class="wrap">
     <div class="tabs no-print">
       <button class="tab active" data-t="roster" onclick="switchTab('roster')">花名册</button>
-      <button class="tab" data-t="qr" onclick="switchTab('qr')">每生二维码</button>
+      <button class="tab" data-t="qr" onclick="switchTab('qr')">系统二维码</button>
       <button class="tab" data-t="schedule" onclick="switchTab('schedule')">课表管理</button>
       <button class="tab" data-t="scores" onclick="switchTab('scores')">成绩上传</button>
       <button class="tab" data-t="records" onclick="switchTab('records')">月记录总览</button>
@@ -89,11 +89,11 @@
       <div id="rosterTable"></div>
     </div>
 
-    <!-- 每生二维码 -->
+    <!-- 系统二维码 -->
     <div id="p-qr" class="card hidden">
-      <h3>每生专属二维码</h3>
-      <p class="hint">学生二维码：学生扫码填表/查看自己；家长二维码：家长扫码查看自己孩子（只读）。可逐个下载或一键打印全部。</p>
-      <button class="ghost no-print" onclick="window.print()">🖨 打印全部二维码</button>
+      <h3>系统二维码</h3>
+      <p class="hint">学生端与家长端各一个统一入口二维码，扫码进入登录页后用<b>姓名 + 学号</b>登录。教师端用密码登录。</p>
+      <button class="ghost no-print" onclick="window.print()">🖨 打印</button>
       <div id="qrGrid" class="qr-grid" style="margin-top:12px;"></div>
     </div>
 
@@ -206,29 +206,31 @@ async function loadRoster(){
 }
 
 async function loadQR(){
-  const rows = await api('/api/qr' + aq());
-  if (!rows || !rows.length) { $('qrGrid').innerHTML = '<p class="hint">花名册为空，请先录入学生。</p>'; return; }
   const base = location.origin;
+  const items = [
+    { label:'教师端（密码登录）', url: base + '/teacher.html', file:'teacher.png' },
+    { label:'学生端（姓名+学号）', url: base + '/student.html', file:'student.png' },
+    { label:'家长端（姓名+学号）', url: base + '/parent.html', file:'parent.png' },
+  ];
   $('qrGrid').innerHTML = '';
-  for (const s of rows) {
-    const stuUrl = base + '/student.html?sid=' + encodeURIComponent(s.sid) + '&t=' + encodeURIComponent(s.token_student);
-    const parUrl = base + '/parent.html?sid=' + encodeURIComponent(s.sid) + '&t=' + encodeURIComponent(s.token_parent);
+  items.forEach(it => {
     const div = document.createElement('div'); div.className = 'qr-item';
-    div.innerHTML = `<h4>${esc(s.name)}（${s.sid}）</h4>
-      <div>学生码</div><canvas id="c_${s.sid}"></canvas>
-      <div class="links">${stuUrl}</div>
-      <div>家长码</div><canvas id="p_${s.sid}"></canvas>
-      <div class="links">${parUrl}</div>
-      <button class="ghost" onclick="dl('c_${s.sid}','学生_${s.sid}.png')">下载学生码</button>
-      <button class="ghost" onclick="dl('p_${s.sid}','家长_${s.sid}.png')">下载家长码</button>`;
+    const boxId = 'qr_' + it.label;
+    div.innerHTML = `<h4>${it.label}</h4><div class="qrbox" id="${boxId}"></div><div class="links">${it.url}</div><button class="ghost" onclick="dlQR('${boxId}','${it.file}')">下载</button>`;
     $('qrGrid').appendChild(div);
-    if (window.QRCode) {
-      QRCode.toCanvas(document.getElementById('c_'+s.sid), stuUrl, {width:160}, ()=>{});
-      QRCode.toCanvas(document.getElementById('p_'+s.sid), parUrl, {width:160}, ()=>{});
-    }
-  }
+    const box = document.getElementById(boxId);
+    try { new QRCode(box, { text: it.url, width: 168, height: 168, correctLevel: QRCode.CorrectLevel.H }); }
+    catch (e) { box.textContent = '二维码生成失败'; }
+  });
 }
-function dl(canvasId, name){ const c = document.getElementById(canvasId); const a = document.createElement('a'); a.download = name; a.href = c.toDataURL(); a.click(); }
+function dlQR(boxId, name){
+  const el = document.getElementById(boxId);
+  const c = el.querySelector('canvas');
+  const a = document.createElement('a'); a.download = name;
+  if (c) a.href = c.toDataURL();
+  else { const img = el.querySelector('img'); if (img) a.href = img.src; else { alert('请等待二维码生成完成'); return; } }
+  a.click();
+}
 
 async function loadSchedule(){
   const sid = $('sc_sel').value; if (!sid) return;

@@ -5,13 +5,10 @@
 
 用法：
   1) 部署后，把下面 BASE_URL 改成你的实网域名（如 https://xxx.pages.dev）
-  2) 生成三个终端入口码：
+  2) 生成三个终端统一入口码（教师端 / 学生端 / 家长端）：
        python _gen_qr.py entry
-  3) 生成每生专属码（学生码 + 家长码）：
-       - 从教师端「每生二维码」页可逐个下载/打印；
-       - 或导出花名册 CSV（含 token）后用：
-       python _gen_qr.py students roster.csv
-       CSV 表头：sid,name,token_student,token_parent
+  说明：学生端与家长端各一个统一入口二维码，扫码进入登录页后用「姓名 + 学号」登录，
+        不再为每个学生单独生成二维码。
 """
 import os, csv, qrcode
 
@@ -35,33 +32,7 @@ def gen_entry():
     make(BASE_URL + "/student.html",  "entry_student.png",  "学生端")
     make(BASE_URL + "/parent.html",   "entry_parent.png",   "家长端")
 
-def gen_students(csv_path):
-    print("从", csv_path, "生成每生专属二维码 ->", OUT)
-    with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
-        for row in csv.DictReader(f):
-            sid = row.get("sid", "").strip()
-            name = row.get("name", "").strip()
-            ts = row.get("token_student", "").strip()
-            tp = row.get("token_parent", "").strip()
-            if not sid:
-                continue
-            if ts:
-                make(BASE_URL + "/student.html?sid=" + sid + "&t=" + ts,
-                     "student_%s.png" % sid, name + " 学生码")
-            if tp:
-                make(BASE_URL + "/parent.html?sid=" + sid + "&t=" + tp,
-                     "parent_%s.png" % sid, name + " 家长码")
-    print("完成。")
+# 注：学生端/家长端已统一为入口二维码（见 gen_entry），不再为每人单独生成专属码。
 
 if __name__ == "__main__":
-    import sys
-    cmd = sys.argv[1] if len(sys.argv) > 1 else "entry"
-    if cmd == "entry":
-        gen_entry()
-    elif cmd == "students":
-        if len(sys.argv) < 3:
-            print("用法: python _gen_qr.py students roster.csv")
-        else:
-            gen_students(sys.argv[2])
-    else:
-        print("未知命令:", cmd)
+    gen_entry()

@@ -46,12 +46,12 @@
 <!-- 登录/扫码 -->
 <div id="loginView">
   <div class="lock card">
-    <h2>登录</h2>
-    <p class="hint">初始账号与密码均为<strong>学号</strong>；首次登录需修改密码。<br>也可用班主任发的专属二维码扫码直接进入。</p>
+    <h2>学生登录</h2>
+    <p class="hint">请输入<b>姓名</b>与<b>学号</b>登录。</p>
+    <label>姓名</label>
+    <input id="name" placeholder="请输入姓名">
     <label>学号</label>
     <input id="sid" placeholder="请输入学号">
-    <label>密码</label>
-    <input id="pwd" type="password" placeholder="初始密码=学号">
     <button class="primary" onclick="doLogin()">登录</button>
     <div id="loginMsg" class="err" style="margin-top:10px;"></div>
   </div>
@@ -65,7 +65,6 @@
       <button class="tab" data-t="record" onclick="switchTab('record')">每月学习记录</button>
       <button class="tab" data-t="schedule" onclick="switchTab('schedule')">我的课表</button>
       <button class="tab" data-t="scores" onclick="switchTab('scores')">我的成绩</button>
-      <button class="tab" data-t="pwd" onclick="switchTab('pwd')">修改密码</button>
     </div>
 
     <!-- 档案 -->
@@ -119,29 +118,9 @@
       <div id="scoresBody">加载中…</div>
     </div>
 
-    <!-- 改密 -->
-    <div id="p-pwd" class="card hidden">
-      <h3>修改密码</h3>
-      <label>原密码</label><input id="oldP" type="password">
-      <label>新密码（至少 4 位）</label><input id="newP" type="password">
-      <label>确认新密码</label><input id="newP2" type="password">
-      <button class="primary" onclick="changePwd()">修改密码</button>
-      <span id="pwdMsg" class="ok"></span>
-    </div>
   </div>
 </div>
 
-<!-- 强制改密弹窗 -->
-<div class="modal-bg" id="forceModal">
-  <div class="modal">
-    <h3>⚠️ 首次登录，请修改密码</h3>
-    <p class="hint">初始密码为学号，存在安全风险，必须修改后才能使用。</p>
-    <label>新密码（至少 4 位）</label><input id="fpNew" type="password">
-    <label>确认新密码</label><input id="fpNew2" type="password">
-    <button class="primary" onclick="forceChange()">确认修改</button>
-    <div id="forceMsg" class="err"></div>
-  </div>
-</div>
 
 <script>
 const SYNC_BASE = location.origin;
@@ -152,52 +131,17 @@ function api(path, opts) {
 }
 function $(id){ return document.getElementById(id); }
 
-// —— 扫码进入（URL 带 ?sid=&t=）——
-(function initFromQR(){
-  const q = new URLSearchParams(location.search);
-  const sid = q.get('sid'), t = q.get('t');
-  if (sid && t) {
-    api('/api/me?sid=' + encodeURIComponent(sid) + '&t=' + encodeURIComponent(t)).then(d => {
-      if (d.ok) { SESSION = { sid: d.sid, name: d.name, class_name: d.class_name, token_student: t }; enter(); }
-      else { $('loginMsg').textContent = d.error || '二维码无效'; }
-    }).catch(e => { $('loginMsg').textContent = '网络错误'; });
-  }
-})();
-
 function doLogin(){
-  const sid = $('sid').value.trim(), pwd = $('pwd').value;
+  const sid = $('sid').value.trim(), name = $('name').value.trim();
   $('loginMsg').textContent = '';
-  api('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sid, password: pwd}) })
+  if (!name || !sid) { $('loginMsg').textContent = '请输入姓名和学号'; return; }
+  api('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sid, name}) })
     .then(d => {
       if (d.ok) {
         SESSION = { sid: d.sid, name: d.name, class_name: d.class_name, token_student: d.token_student };
-        if (d.needChange) { $('forceModal').classList.add('show'); }
-        else enter();
+        enter();
       } else { $('loginMsg').textContent = d.error || '登录失败'; }
     }).catch(e => { $('loginMsg').textContent = '网络错误'; });
-}
-
-function forceChange(){
-  const np = $('fpNew').value, np2 = $('fpNew2').value;
-  if (np.length < 4) { $('forceMsg').textContent = '新密码至少 4 位'; return; }
-  if (np !== np2) { $('forceMsg').textContent = '两次输入不一致'; return; }
-  // 首次改密：原密码即初始密码（=学号）
-  api('/api/change-password', { method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ sid: SESSION.sid, oldPassword: SESSION.sid, newPassword: np }) })
-    .then(d => {
-      if (d.ok) { $('forceModal').classList.remove('show'); enter(); }
-      else { $('forceMsg').textContent = d.error || '修改失败'; }
-    }).catch(e => { $('forceMsg').textContent = '网络错误'; });
-}
-
-function changePwd(){
-  const op = $('oldP').value, np = $('newP').value, np2 = $('newP2').value;
-  $('pwdMsg').textContent = '';
-  if (np.length < 4) { $('pwdMsg').textContent = '新密码至少 4 位'; $('pwdMsg').className='err'; return; }
-  if (np !== np2) { $('pwdMsg').textContent = '两次输入不一致'; $('pwdMsg').className='err'; return; }
-  api('/api/change-password', { method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ sid: SESSION.sid, oldPassword: op, newPassword: np }) })
-    .then(d => { $('pwdMsg').textContent = d.ok ? '密码已修改' : (d.error||'失败'); $('pwdMsg').className = d.ok?'ok':'err'; });
 }
 
 function enter(){
@@ -209,7 +153,7 @@ function enter(){
 
 function switchTab(t){
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.t === t));
-  ['profile','record','schedule','scores','pwd'].forEach(k => $('p-'+k).classList.toggle('hidden', k !== t));
+  ['profile','record','schedule','scores'].forEach(k => $('p-'+k).classList.toggle('hidden', k !== t));
   if (t === 'record') loadRecords();
   if (t === 'schedule') loadSchedule();
   if (t === 'scores') loadScores();

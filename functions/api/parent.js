@@ -1,4 +1,4 @@
-import { json, handleCors, parentSession } from '../_lib.js';
+import { json, handleCors, getStudent } from '../_lib.js';
 
 export async function onRequest(context) {
   const { env } = context;
@@ -9,8 +9,9 @@ export async function onRequest(context) {
   if (context.request.method === 'GET') {
     const sid = url.searchParams.get('sid');
     const t = url.searchParams.get('t');
-    const stu = await parentSession(env.DB, sid, t);
-    if (!stu) return json({ error: '无效或已过期的家长二维码' }, 403);
+    const stu = await getStudent(env.DB, sid);
+    if (!stu) return json({ error: '学号不存在' }, 404);
+    if (t !== stu.token_student && t !== stu.token_parent) return json({ error: '无效或已过期的凭证' }, 403);
 
     const prof = await env.DB.prepare('SELECT family, psych, updated_at FROM profiles WHERE sid = ?').bind(sid).first();
     const sched = await env.DB.prepare('SELECT term, data FROM schedules WHERE sid = ?').bind(sid).first();
