@@ -107,14 +107,30 @@
     <!-- 课表 -->
     <div id="p-schedule" class="card hidden">
       <h3>我的课表</h3>
-      <p id="scheduleTerm" class="hint"></p>
+      <p class="hint">可自己录入 / 修改课表，教师与家长端可见。每行格式：<code>节次/时间, 课程, 教室</code></p>
+      <div class="row">
+        <div><label>学期</label><input id="sc_term" placeholder="如 2026-2027-1"></div>
+      </div>
+      <label>课表内容（每行一门）</label>
+      <textarea id="sc_data" placeholder="周一1-2, 高等数学, 主楼301&#10;周一3-4, 大学英语, 外语楼205"></textarea>
+      <button class="primary" onclick="saveSchedule()">保存课表</button>
+      <span id="scMsg" class="ok"></span>
+      <h4 style="margin-top:16px;color:#2f5d8a">已保存课表</h4>
       <div id="scheduleBody">加载中…</div>
     </div>
 
     <!-- 成绩 -->
     <div id="p-scores" class="card hidden">
-      <h3>我的成绩</h3>
-      <p id="scoresTerm" class="hint"></p>
+      <h3>我的成绩（期末）</h3>
+      <p class="hint">可自己录入 / 修改期末成绩，教师端可核对。每行格式：<code>课程, 成绩, 学分</code></p>
+      <div class="row">
+        <div><label>学期</label><input id="sg_term" placeholder="如 2026-2027-1"></div>
+      </div>
+      <label>成绩内容（每行一门）</label>
+      <textarea id="sg_data" placeholder="高等数学, 85, 4&#10;大学英语, 78, 3"></textarea>
+      <button class="primary" onclick="saveScores()">保存成绩</button>
+      <span id="sgMsg" class="ok"></span>
+      <h4 style="margin-top:16px;color:#2f5d8a">已保存成绩</h4>
       <div id="scoresBody">加载中…</div>
     </div>
 
@@ -209,20 +225,42 @@ function saveRecord(){
 function loadSchedule(){
   api('/api/schedule' + authQS()).then(d => {
     if (!d) return;
-    $('scheduleTerm').textContent = d.term ? ('学期：' + d.term) : '尚未录入课表';
-    const cols = [['节次/时间','period'],['课程','course'],['教室','room']];
-    $('scheduleBody').innerHTML = d.data && d.data.length
-      ? tableOf(d.data, cols) : '<p class="hint">暂无课表</p>';
+    $('sc_term').value = d.term || '';
+    $('sc_data').value = (d.data || []).map(r => `${r.period||''}, ${r.course||''}, ${r.room||''}`).join('\n');
+    renderSchedule(d);
   });
+}
+function renderSchedule(d){
+  const cols = [['节次/时间','period'],['课程','course'],['教室','room']];
+  $('scheduleBody').innerHTML = d.data && d.data.length
+    ? tableOf(d.data, cols) : '<p class="hint">尚未录入课表</p>';
+}
+function saveSchedule(){
+  const data = $('sc_data').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const p = l.split(','); return { period: (p[0]||'').trim(), course: (p[1]||'').trim(), room: (p[2]||'').trim() };
+  });
+  api('/api/schedule' + authQS(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ term: $('sc_term').value, data }) })
+    .then(d => { $('scMsg').textContent = d.ok ? '已保存 ✓' : (d.error||'失败'); $('scMsg').className = d.ok ? 'ok' : 'err'; if (d.ok) renderSchedule({ data }); });
 }
 function loadScores(){
   api('/api/scores' + authQS()).then(d => {
     if (!d) return;
-    $('scoresTerm').textContent = d.term ? ('学期：' + d.term) : '尚未录入成绩';
-    const cols = [['课程','course'],['成绩','score'],['学分','credit']];
-    $('scoresBody').innerHTML = d.data && d.data.length
-      ? tableOf(d.data, cols) : '<p class="hint">暂无成绩</p>';
+    $('sg_term').value = d.term || '';
+    $('sg_data').value = (d.data || []).map(r => `${r.course||''}, ${r.score??''}, ${r.credit??''}`).join('\n');
+    renderScores(d);
   });
+}
+function renderScores(d){
+  const cols = [['课程','course'],['成绩','score'],['学分','credit']];
+  $('scoresBody').innerHTML = d.data && d.data.length
+    ? tableOf(d.data, cols) : '<p class="hint">尚未录入成绩</p>';
+}
+function saveScores(){
+  const data = $('sg_data').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const p = l.split(','); return { course: (p[0]||'').trim(), score: (p[1]||'').trim(), credit: (p[2]||'').trim() };
+  });
+  api('/api/scores' + authQS(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ term: $('sg_term').value, data }) })
+    .then(d => { $('sgMsg').textContent = d.ok ? '已保存 ✓' : (d.error||'失败'); $('sgMsg').className = d.ok ? 'ok' : 'err'; if (d.ok) renderScores({ data }); });
 }
 function tableOf(arr, cols){
   let h = '<table><tr>' + cols.map(c => '<th>'+c[0]+'</th>').join('') + '</tr>';
